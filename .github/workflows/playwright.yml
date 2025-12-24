@@ -125,7 +125,8 @@ jobs:
           # Copy all test-results (screenshots/videos/traces) to the merged directory
           for shard_dir in ./all-shards/shard-test-results-*; do
             if [ -d "$shard_dir" ]; then
-              cp -r "$shard_dir"/* merged-test-results/ 2>/dev/null || true
+              # Preserve binary files and directory structure safely
+              (cd "$shard_dir" && tar -cf - .) | (cd merged-test-results && tar -xf -)
             fi
           done
 
@@ -135,7 +136,8 @@ jobs:
 
             # Place attachments next to the report so links resolve when viewing index.html
             if [ "$(ls -A merged-test-results 2>/dev/null)" ]; then
-              mv merged-test-results merged-report/test-results
+              mkdir -p merged-report/test-results
+              (cd merged-test-results && tar -cf - .) | (cd merged-report/test-results && tar -xf -)
             fi
           else
             echo "ERROR: No files found in merged-blob-reports directory"
