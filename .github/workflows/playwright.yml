@@ -1,4 +1,4 @@
-name: User Interface
+name: Playwright Tests
 
 on:
   workflow_dispatch:
@@ -16,7 +16,7 @@ on:
     - cron: "0 6 * * *" # Run daily at 06:00 UTC
 
 concurrency:
-  group: user-interface-tests
+  group: playwright-tests
   cancel-in-progress: false
 
 jobs:
