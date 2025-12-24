@@ -69,6 +69,10 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
 
+      - name: Fail this shard if tests failed
+        if: steps.run-tests.outputs.exit_code != '0'
+        run: exit 1
+
   merge-reports:
     needs: one-ui-shard
     if: always()
