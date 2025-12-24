@@ -1,5 +1,5 @@
 import {Webtables} from '../pages/webtables'
-import {progressBar} from '../pages/progressBar'
+import {progressBar} from '../pages/progressbar'
 import {brokenImage} from '../pages/brokenimg'
 import {forms} from '../pages/forms'
 import {toolTip} from '../pages/tooltip'
