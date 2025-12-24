@@ -11,7 +11,7 @@ export class Webtables {
     await this.page.getByText('Web Tables').click()
   }
   async add_button() {
-    await this.page.click('#addNewRecordButton')
+    await this.page.click('#addNewRecordButton1')
   }
   async first_name_field(FName: string) {
     await this.page.fill('#firstName', FName)

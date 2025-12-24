@@ -23,7 +23,9 @@ jobs:
         run: npx playwright install
 
       - name: Create report directory (if necessary)
-        run: mkdir -p playwright-report
+        run: |
+          if (!(Test-Path "./playwright-report")) { New-Item -ItemType Directory -Path "./playwright-report" | Out-Null }
+        shell: pwsh
 
       - name: Run Playwright tests
         run: npm run ui-tests
@@ -44,3 +46,12 @@ jobs:
         with:
           name: playwright-report
           path: playwright-report
+
+      # Upload Playwright test artifacts (screenshots, traces, videos) on failure.
+      # The HTML report references these files, and they’re also useful to download directly.
+      - name: Upload Playwright Test Artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results
+          path: test-results

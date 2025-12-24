@@ -26,6 +26,8 @@ export default defineConfig({
     /* Base URL to use in actions like `await page.goto('/')`. */
     baseURL: 'https://demoqa.com',
     headless: false,
+    // Capture screenshots for failed tests so they appear as attachments in the HTML report.
+    screenshot: 'only-on-failure',
     video: 'retain-on-failure',
     navigationTimeout: 50000,
 
