@@ -1,88 +1,35 @@
-import {defineConfig, devices} from '@playwright/test'
+import {defineConfig} from '@playwright/test'
+import type {ReporterDescription} from '@playwright/test'
 
-/**
- * Read environment variables from file.
- * https://github.com/motdotla/dotenv
- */
-// require('dotenv').config();
-
-/**
- * See https://playwright.dev/docs/test-configuration.
- */
 export default defineConfig({
+  timeout: process.env.CI ? 120_000 : 60_000,
+
   testDir: './tests',
-  /* Run tests in files in parallel */
+
+  outputDir: 'test-results',
+
+  /* "fullyParallel: false" means only run different test FILES in parallel */
   fullyParallel: false,
+
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
-  /* Retry on CI only */
-  retries: process.env.CI ? 1 : 0,
-  /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 1 : undefined,
-  /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: [['html', {outputFolder: 'playwright-report', open: 'never'}]],
-  /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
-  use: {
-    /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: 'https://demoqa.com',
-    headless: false,
-    // Capture screenshots for failed tests so they appear as attachments in the HTML report.
-    screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
-    navigationTimeout: 50000,
 
-    /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
-    trace: 'on',
-  },
+  maxFailures: process.env.CI ? 3 : 0,
 
-  /* Configure projects for major browsers */
-  projects: [
-    {
-      name: 'chromium',
-      use: {
-        ...devices['Desktop Chrome'],
-        viewport: {width: 1536, height: 816},
-      },
-    },
+  retries: process.env.CI ? 1 : 1,
 
-    // {
-    //   name: 'firefox',
-    //   use: {
-    //     ...devices['Desktop Firefox'],
-    //     viewport: {width: 1536, height: 816},
-    //   },
-    // },
+  workers: process.env.CI ? 1 : 1,
 
-    // {
-    //   name: 'webkit',
-    //   use: { ...devices['Desktop Safari'] },
-    // },
-
-    /* Test against mobile viewports. */
-    // {
-    //   name: 'Mobile Chrome',
-    //   use: { ...devices['Pixel 5'] },
-    // },
-    // {
-    //   name: 'Mobile Safari',
-    //   use: { ...devices['iPhone 12'] },
-    // },
-
-    /* Test against branded browsers. */
-    // {
-    //   name: 'Microsoft Edge',
-    //   use: { ...devices['Desktop Edge'], channel: 'msedge' },
-    // },
-    // {
-    //   name: 'Google Chrome',
-    //   use: { ...devices['Desktop Chrome'], channel: 'chrome' },
-    // },
+  reporter: [
+    ['list'], // CLI list reporter
+    ['html', {outputFolder: 'playwright-report', open: 'never'}],
+    ...(process.env.CI ? ([['blob']] as ReporterDescription[]) : []),
   ],
 
-  /* Run your local dev server before starting the tests */
-  // webServer: {
-  //   command: 'npm run start',
-  //   url: 'http://127.0.0.1:3000',
-  //   reuseExistingServer: !process.env.CI,
-  // },
+  use: {
+    // Allow CI to override via BASE_URL while still having a sensible default.
+    baseURL: process.env.BASE_URL ?? 'https://demoqa.com',
+    viewport: {width: 1536, height: 816},
+    screenshot: 'only-on-failure',
+  },
 })
