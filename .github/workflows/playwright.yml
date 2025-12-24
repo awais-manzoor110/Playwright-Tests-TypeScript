@@ -69,19 +69,6 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
 
-      - name: Upload shard test artifacts (screenshots)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: shard-test-results-${{ matrix.shard.index }}-${{ matrix.shard.name }}
-          path: test-results
-          retention-days: 7
-          if-no-files-found: warn
-
-      - name: Fail this shard if tests failed
-        if: steps.run-tests.outputs.exit_code != '0'
-        run: exit 1
-
   merge-reports:
     needs: one-ui-shard
     if: always()
@@ -106,7 +93,6 @@ jobs:
       - name: Merge HTML reports
         run: |
           mkdir -p merged-blob-reports
-          mkdir -p merged-test-results
           # Copy all blob reports to the merged directory
           for shard_dir in ./all-shards/shard-report-*; do
             if [ -d "$shard_dir" ]; then
@@ -122,24 +108,9 @@ jobs:
             fi
           done
 
-          # Copy all test-results (screenshots/videos/traces) to the merged directory
-          for shard_dir in ./all-shards/shard-test-results-*; do
-            if [ -d "$shard_dir" ]; then
-              # Preserve binary files and directory structure safely
-              (cd "$shard_dir" && tar -cf - .) | (cd merged-test-results && tar -xf -)
-            fi
-          done
-
           if [ "$(ls -A merged-blob-reports 2>/dev/null)" ]; then
             npx playwright merge-reports --reporter html merged-blob-reports
             mv playwright-report merged-report
-
-            # The merged HTML report references attachments from the report's `data/` folder.
-            # Copy all shard test artifacts into `merged-report/data` so screenshot links resolve.
-            if [ "$(ls -A merged-test-results 2>/dev/null)" ]; then
-              mkdir -p merged-report/data
-              (cd merged-test-results && tar -cf - .) | (cd merged-report/data && tar -xf -)
-            fi
           else
             echo "ERROR: No files found in merged-blob-reports directory"
             exit 1

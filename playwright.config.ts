@@ -2,7 +2,7 @@ import {defineConfig} from '@playwright/test'
 import type {ReporterDescription} from '@playwright/test'
 
 export default defineConfig({
-  timeout: process.env.CI ? 120_000 : 60_000,
+  timeout: process.env.CI ? 60_000 : 60_000,
 
   testDir: './tests',
 
