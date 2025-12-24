@@ -1,46 +1,128 @@
 name: Playwright Tests
 
 on:
-  workflow_dispatch: # Allows manual triggering of the workflow
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: "Commit SHA to test (optional)"
+        required: false
+        default: ""
+      grep:
+        description: "Playwright --grep filter (optional). Example: @smoke or @critical"
+        required: false
+        default: ""
+  pull_request:
+
+concurrency:
+  group: playwright-tests
+  cancel-in-progress: false
 
 jobs:
-  test:
-    runs-on: windows-latest
+  one-ui-shard:
+    runs-on: ubuntu-latest
 
+    strategy:
+      fail-fast: false
+      matrix:
+        shard:
+          [
+            { index: 0, name: "API Tests", file: "tests/api-tests/" },
+            { index: 1, name: "UI Tests", file: "tests/ui-tests/" },
+           
+          ]
     steps:
-      - name: Checkout repository
+      - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.commit_sha || github.sha }}
 
-      - name: Set up Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 22
+          cache: "npm"
 
-      - name: Install dependencies
-        run: npm install
+      - name: Clean install
+        run: npm ci --retry=5 --fetch-retries=3 --fetch-retry-mintimeout=20000
 
       - name: Install Playwright browsers
-        run: npx playwright install
+        run: |
+          npx playwright install chromium
 
-      - name: Create report directory (if necessary)
-        run: mkdir -p playwright-report
-
-      - name: Run Playwright tests
-        run: npm run ui-tests
+      - name: Run shard ${{ matrix.shard.index }} - ${{ matrix.shard.name }}
+        id: run-tests
+        run: |
+          set +e
+          BASE_URL="${PLAYWRIGHT_BASE_URL:-https://demoqa.com}"
+          echo "Using BASE_URL=$BASE_URL"
+          echo "Running ${{ matrix.shard.name }}"
+          CI=true BASE_URL="$BASE_URL" npx playwright test "${{ matrix.shard.file }}" --reporter=list,blob
+          echo "exit_code=$?" >> $GITHUB_OUTPUT
         continue-on-error: true
 
-      - name: Check if Playwright report exists
-        run: |
-          if (Test-Path "./playwright-report/index.html") {
-            Write-Output "Report exists"
-          } else {
-            Write-Output "Report not found"
-          }
-        shell: pwsh
-
-      - name: Upload Playwright HTML Report
+      - name: Upload shard report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
-          path: playwright-report
+          name: shard-report-${{ matrix.shard.index }}-${{ matrix.shard.name }}
+          path: blob-report
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Fail this shard if tests failed
+        if: steps.run-tests.outputs.exit_code != '0'
+        run: exit 1
+
+  merge-reports:
+    needs: one-ui-shard
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download all shard reports
+        uses: actions/download-artifact@v4
+        with:
+          path: all-shards
+
+      - name: Merge HTML reports
+        run: |
+          mkdir -p merged-blob-reports
+          # Copy all blob reports to the merged directory
+          for shard_dir in ./all-shards/shard-report-*; do
+            if [ -d "$shard_dir" ]; then
+              # Check if blob-report directory exists
+              if [ -d "$shard_dir/blob-report" ]; then
+                cp -r "$shard_dir/blob-report"/* merged-blob-reports/ 2>/dev/null || true
+              else
+                # Check if there are any files directly in the shard directory
+                if [ "$(ls -A "$shard_dir" 2>/dev/null)" ]; then
+                  cp -r "$shard_dir"/* merged-blob-reports/ 2>/dev/null || true
+                fi
+              fi
+            fi
+          done
+
+          if [ "$(ls -A merged-blob-reports 2>/dev/null)" ]; then
+            npx playwright merge-reports --reporter html merged-blob-reports
+            mv playwright-report merged-report
+          else
+            echo "ERROR: No files found in merged-blob-reports directory"
+            exit 1
+          fi
+
+      - name: Upload merged HTML report
+        uses: actions/upload-artifact@v4
+        with:
+          name: final-html-report
+          path: merged-report
+          retention-days: 7
